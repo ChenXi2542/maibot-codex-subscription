@@ -41,7 +41,7 @@ from maibot_sdk import (
     PluginConfigBase,
 )
 
-__version__ = "0.3.3"
+__version__ = "0.3.4"
 
 # --------------------------------------------------------------------------------------
 # 常量
@@ -352,13 +352,20 @@ class Account:
 
 
 def _atomic_write_json(path: Path, payload: dict[str, Any]) -> None:
+    """原子写入 JSON，并且从创建那一刻起就是 0600（不经过 umask 的窗口期）。"""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f"{path.name}.tmp-{os.getpid()}-{int(time.time() * 1000)}")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    data = (json.dumps(payload, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_BINARY", 0), 0o600)
     try:
-        os.chmod(tmp, 0o600)
-    except OSError:
-        pass
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
     os.replace(tmp, path)
 
 
@@ -1328,6 +1335,13 @@ def sync_model_config(
         backup_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         (backup_dir / f"{path.stem}_codex_{stamp}.toml").write_text(text, encoding="utf-8")
+        # 只保留最近 10 份本插件写的备份，避免长期运行攒一堆文件
+        backups = sorted(backup_dir.glob(f"{path.stem}_codex_*.toml"))
+        for stale in backups[:-10]:
+            try:
+                stale.unlink()
+            except OSError:
+                pass
     except OSError:  # pragma: no cover - 备份失败不阻塞主流程
         logger.warning("备份 model_config.toml 失败", exc_info=True)
 
@@ -2001,7 +2015,7 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
         client = await self.http_client()
         try:
             account = await self.ensure_account(client)
-            models = await self._catalog(client, account, force=True)
+            models = await self._catalog(client, account, force=False)
         except CodexError as exc:
             return True, str(exc), 2
 

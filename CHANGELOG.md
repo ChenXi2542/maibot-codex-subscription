@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 0.3.4
+
+第三轮审核的三条非阻断建议：
+
+- `/codex models`（public）改为读取目录缓存（TTL 内不再发请求），不会让群里任何人反复触发
+  带鉴权的上游请求。
+- 同步只保留最近 10 份 `config/old/model_config_codex_*.toml` 备份；README 明确说明
+  「手动加到 `Codex订阅` 下的模型也会被同步移除」。
+- 账号库写入改为 `os.open(..., 0o600)` 直接创建临时文件，去掉 write-then-chmod 的权限窗口期。
+
 ## 0.3.3
 
 第二轮审核意见：

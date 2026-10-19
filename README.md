@@ -84,14 +84,18 @@
 
 ## 模型目录与同步（v0.3+）
 
-插件加载、登录成功、执行 `/codex models` 时会拉取账号的完整模型目录，并把选中的模型写进
+插件加载、登录成功、执行 `/codex sync` 时会拉取账号的完整模型目录，并把选中的模型写进
 `config/model_config.toml`：
 
 - 自动创建（或复用）`api_providers` 里的 `Codex订阅` 条目（`client_type = codex_subscription`）；
 - 每个模型生成一条 `[[models]]`，名字默认加 `codex-` 前缀（可配置），避免和已有模型重名；
-- **只重建自己的条目**，其它 provider 的模型一个都不动；被 `model_task_config` 引用的旧条目不会删；
-- 写前备份到 `config/old/model_config_codex_<时间>.toml`；
+- **只重建自己 provider 下的条目**：`model_task_config` 引用中的会保留，其余会被移除——
+  包括你手动加到 `Codex订阅` 下面的条目，所以别把自定义模型挂在这个 provider 下；
+- 写前备份到 `config/old/model_config_codex_<时间>.toml`，只保留最近 10 份；
 - MaiBot 有文件监听，写完自动热重载，无需重启。
+
+`/codex models`（公开命令）只读目录缓存，不会强制联网，也不会改宿主配置；缓存过期才会
+发一次带 Authorization 的请求到 `network.base_url`。
 
 在插件配置页：
 
