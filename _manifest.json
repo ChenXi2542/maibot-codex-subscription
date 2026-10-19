@@ -1,0 +1,53 @@
+{
+  "manifest_version": 2,
+  "id": "com.maibot.codex-subscription",
+  "version": "0.3.1",
+  "name": "ChatGPT 订阅 (Codex)",
+  "description": "插件内置 ChatGPT 账号登录与账号库，用 Plus/Pro（Codex）订阅额度作为 MaiBot 的 LLM Provider，无需 OpenAI API Key。",
+  "author": {
+    "name": "XLCX0429",
+    "url": "https://github.com/XLCX0429"
+  },
+  "license": "MIT",
+  "urls": {
+    "repository": "https://github.com/XLCX0429/maibot-codex-subscription",
+    "documentation": "https://docs.mai-mai.org/plugin/llmprovider"
+  },
+  "host_application": {
+    "min_version": "1.3.0",
+    "max_version": "999.999.999"
+  },
+  "sdk": {
+    "min_version": "2.6.0",
+    "max_version": "999.999.999"
+  },
+  "plugin_type": "provider",
+  "display": {
+    "icon": {
+      "type": "emoji",
+      "value": "🤖",
+      "fallback": "bot"
+    }
+  },
+  "dependencies": [
+    {
+      "type": "python_package",
+      "name": "httpx",
+      "version_spec": ">=0.24.0"
+    }
+  ],
+  "capabilities": [
+    "send.text"
+  ],
+  "llm_providers": [
+    {
+      "client_type": "codex_subscription",
+      "name": "ChatGPT 订阅 (Codex)",
+      "description": "ChatGPT 账号登录 + 多账号账号库，Responses API 协议。",
+      "version": "0.3.1"
+    }
+  ],
+  "i18n": {
+    "default_locale": "zh-CN"
+  }
+}
