@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## 0.3.3
+
+第二轮审核意见：
+
+- `/codex models`（public）只做展示，不再触发 `model_config.toml` 同步；同步只由启动流程、
+  登录成功后的内部流程和 operator 的 `/codex sync` 触发。
+- `/codex test` 也改为 operator（会消耗订阅额度）。
+- 登录成功回复不再输出账号库绝对路径。
+- `_parse_command` 改用 Host 文档承诺的 `matched_groups`（命名捕获组 `action`/`arg`），
+  旧 Host 只有原始文本时退化为文本解析；命令模式改用命名捕获组。
+- `host_application.max_version` 从 `999.999.999` 收到 `1.3.99`。
+- `accounts_file` 只允许插件数据目录内的路径，绝对路径/`..` 越界会回退到默认位置。
+- manifest 与 `requirements.txt` 补上 `tomlkit` 依赖声明。
+
 ## 0.3.2
 
 按插件中心审核意见收紧权限与信息暴露：

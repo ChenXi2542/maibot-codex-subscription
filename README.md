@@ -61,20 +61,23 @@
 
 ## 命令
 
-`models` / `test` 对所有人开放；其余命令标了 `permission="operator"`，由 MaiBot 统一鉴权，
-需要在主程序里把自己的账号设为操作员才能用。
+`models` 对所有人开放；其余命令标了 `permission="operator"`，由 MaiBot 统一鉴权，
+需要在主程序里把自己的账号设为操作员才能用（`[plugin].permission = ["qq:123456789"]`，
+或在 WebUI「Bot 配置 → 命令」里配置）。
 
 | 命令 | 权限 | 作用 |
 | --- | --- | --- |
-| `/codex models` | public | 拉取账号可用模型，并同步到模型配置 |
-| `/codex test` | public | 用 `default_model` 跑一句话验证链路 |
+| `/codex models` | public | 查看账号可用模型（只展示，不改配置） |
+| `/codex test` | operator | 用 `default_model` 跑一句话验证链路（会消耗订阅额度） |
 | `/codex login` | operator | 设备码登录，添加账号 |
 | `/codex accounts` | operator | 列出账号库（邮箱 `a***@domain`、ID 只显示前 8 位） |
 | `/codex use <序号\|邮箱>` | operator | 切换当前账号 |
 | `/codex status` | operator | 当前账号、订阅类型、令牌有效期（已脱敏，不输出路径） |
 | `/codex import` | operator | 从服务器上的 `~/.codex/auth.json` 手动导入一次 |
-| `/codex sync` | operator | 只做一次模型配置同步 |
+| `/codex sync` | operator | 同步模型目录到 `model_config.toml` |
 | `/codex logout <序号>` | operator | 从账号库移除账号（令牌一并删除） |
+
+> `model_config.toml` 的同步只在启动、登录成功和 `/codex sync` 时发生；`/codex models` 不会改宿主配置。
 
 
 ---

@@ -546,14 +546,12 @@ def test_commands_helpers(tmp: Path) -> None:
     p._vault.upsert(plugin.Account.from_dict({"access_token": make_account_token("acct_b", "b@x.com", "pro")}))
 
     assert "login" in p._help_text()
+    # Host 按文档下发 matched_groups（命名捕获组）
+    assert p._parse_command({"matched_groups": {"action": "models"}}) == ("models", "")
+    assert p._parse_command({"matched_groups": {"action": "use", "arg": "2"}}) == ("use", "2")
+    # 旧 Host 只有原文时退化为文本解析
+    assert p._parse_command({"raw_message": "/codex use 2"}) == ("use", "2")
     assert p._parse_command({"plain_text": "/codex models"}) == ("models", "")
-    assert p._parse_command({"plain_text": "/codex use 2"}) == ("use", "2")
-
-    class FakeMatch:
-        def groups(self):
-            return ("use",)
-
-    assert p._parse_command({"match": FakeMatch(), "plain_text": "/codex use 1"}) == ("use", "1")
 
     text = p._accounts_text()
     assert "a***@x.com" in text and "b***@x.com" in text
