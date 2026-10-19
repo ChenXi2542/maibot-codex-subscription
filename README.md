@@ -50,7 +50,7 @@
 
 > 只在你**自己**发起登录时输入代码；别人给你的代码不要输。
 
-登录后账号库位置：`data/plugins/com.chenxi.maibot-codex-subscription/accounts.json`（可在插件配置里改）。
+登录后账号库位置：`data/plugins/chenxi2542.maibot-codex-subscription/accounts.json`（可在插件配置里改）。
 
 ### 从 Codex CLI 导入（可选）
 
@@ -160,7 +160,7 @@ temperature = 1.0
 | 模型列表为空 | 设置 `client_version`（`codex --version`）后重试 |
 | 配置页下拉框报 `Select.Item value` | 0.1.2 已修（选项不再使用空字符串） |
 
-日志 logger：`plugin.com.chenxi.maibot-codex-subscription`。
+日志 logger：`plugin.chenxi2542.maibot-codex-subscription`。
 
 ---
 

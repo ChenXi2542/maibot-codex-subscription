@@ -48,7 +48,7 @@ git push origin v0.3.1
 
 打开 <https://github.com/Mai-with-u/plugin-repo/issues/new/choose>，选 **「Add Plugin / 添加插件」**，填：
 
-- **插件 ID**：`com.chenxi.maibot-codex-subscription`
+- **插件 ID**：`chenxi2542.maibot-codex-subscription`
 - **仓库地址**：`https://github.com/<你的用户名>/maibot-codex-subscription`
 
 CI 会自动读仓库根目录的 `_manifest.json` 校验，结果评论在 Issue 里；
@@ -58,7 +58,7 @@ CI 会自动读仓库根目录的 `_manifest.json` 校验，结果评论在 Issu
 ## 提交清单（已核对）
 
 - [x] 根目录有 `_manifest.json`（`manifest_version: 2`）、`plugin.py`、`LICENSE`、`README.md`
-- [x] `id` 稳定：`com.chenxi.maibot-codex-subscription`
+- [x] `id` 稳定：`chenxi2542.maibot-codex-subscription`
 - [x] 版本号三段式：`0.3.1`
 - [x] `host_application` / `sdk` 上界 `999.999.999`，只约束 `min_version`
 - [x] `author` 是 `{ name, url }` 对象

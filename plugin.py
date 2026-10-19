@@ -64,7 +64,7 @@ CHATGPT_UNSUPPORTED_KEYS = ("max_output_tokens", "temperature", "top_p", "stop",
 DEVICE_LOGIN_TIMEOUT = 15 * 60
 
 #: 历史插件 ID；升级到 com.chenxi.maibot-codex-subscription 后用于迁移账号库。
-LEGACY_PLUGIN_IDS = ("com.maibot.codex-subscription",)
+LEGACY_PLUGIN_IDS = ("com.maibot.codex-subscription", "com.chenxi.maibot-codex-subscription")
 
 #: 最近一次拉到的模型目录（供配置页 Schema 生成下拉/多选选项）。
 _LAST_CATALOG: list[dict[str, str]] = []
@@ -1267,7 +1267,7 @@ def sync_model_config(
         table["send_temperature"] = True
         table["visual"] = False
         table["force_stream_mode"] = False
-        table["extra_params"] = tomlkit.table()
+        table["extra_params"] = tomlkit.inline_table()
         managed.append(table)
         result["added"] += 1
 
@@ -1281,6 +1281,16 @@ def sync_model_config(
     rendered = tomlkit.dumps(doc)
     if rendered == text:
         result["reason"] = "无变化"
+        return result
+
+    # 写回前先自校验：能被重新解析、且模型数量对得上，才落盘。
+    try:
+        check = tomlkit.parse(rendered)
+        if not isinstance(check.get("models"), list) or len(check.get("models")) != len(kept) + len(managed):
+            raise ValueError("模型条目数量不一致")
+    except Exception as exc:
+        result["reason"] = f"生成的 TOML 校验失败，已放弃写入：{exc}"
+        logger.error("模型配置同步被中止：%s", exc)
         return result
 
     backup_dir = path.parent / "old"
