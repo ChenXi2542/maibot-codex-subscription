@@ -2,6 +2,8 @@
 
 ## 0.3.1
 
+- 插件 ID 定为 `com.chenxi.maibot-codex-subscription`；首次加载会自动从旧 ID
+  (`com.maibot.codex-subscription`) 的数据目录迁移 `accounts.json`。
 - 修复：`/codex/models` 要求 `client_version` 查询参数，未配置时返回 HTTP 400。
   现在默认 `0.160.1` 并始终随请求发送（`version` 头同步）。
 - 修复：Host 生成配置 Schema 走类方法时拿不到实例目录，改为同时覆盖

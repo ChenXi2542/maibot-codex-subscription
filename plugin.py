@@ -19,6 +19,7 @@ import hashlib
 import json
 import logging
 import os
+import shutil
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -61,6 +62,9 @@ CALL_ID_PATTERN_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY
 CHATGPT_UNSUPPORTED_KEYS = ("max_output_tokens", "temperature", "top_p", "stop", "response_format")
 
 DEVICE_LOGIN_TIMEOUT = 15 * 60
+
+#: 历史插件 ID；升级到 com.chenxi.maibot-codex-subscription 后用于迁移账号库。
+LEGACY_PLUGIN_IDS = ("com.maibot.codex-subscription",)
 
 #: 最近一次拉到的模型目录（供配置页 Schema 生成下拉/多选选项）。
 _LAST_CATALOG: list[dict[str, str]] = []
@@ -1576,6 +1580,29 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
             except Exception:  # pragma: no cover
                 pass
 
+    def _migrate_legacy_data(self) -> None:
+        """从旧插件 ID 的数据目录迁移账号库（仅默认路径、且当前库不存在时）。"""
+        if (self.cfg.account.accounts_file or "").strip():
+            return
+        try:
+            data_dir = Path(self.ctx.paths.data_dir)
+        except Exception:
+            return
+        target = data_dir / "accounts.json"
+        if target.exists():
+            return
+        for legacy_id in LEGACY_PLUGIN_IDS:
+            legacy = data_dir.parent / legacy_id / "accounts.json"
+            if not legacy.is_file():
+                continue
+            try:
+                data_dir.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(legacy, target)
+                logger.info("已从旧插件 ID 迁移账号库：%s -> %s", legacy, target)
+            except OSError:
+                logger.warning("迁移旧账号库失败：%s", legacy, exc_info=True)
+            return
+
     def _maybe_import_codex_auth(self) -> None:
         if not self.cfg.account.import_codex_auth:
             return
@@ -1607,6 +1634,7 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
 
     async def on_load(self) -> None:
         self._vault = AccountVault(self._accounts_path)
+        self._migrate_legacy_data()
         self._maybe_import_codex_auth()
         try:
             accounts = self._vault.accounts()
