@@ -201,3 +201,14 @@ python tests/test_protocol.py
 - 订阅额度按账号计量，与 Codex 共用同一份配额；请自行确认这种用法符合账号条款和所在平台规定。
 - 令牌只存在本机账号库（0600），除 OpenAI 官方端点外不会发往任何地方，也不会写进日志。
 - 订阅后端是「受限 Responses 实现」，OpenAI 调整协议时插件可能需要跟着更新。
+
+### 关于「以官方 Codex 客户端身份请求」
+
+插件复用 Codex CLI 的 OAuth client id（`app_EMoamEEZ73f0CkXaXp7hrann`），并在请求头里带
+`originator: codex_cli_rs` 与 `version`，也就是向 OpenAI 表明自己是官方 Codex 客户端。
+这是第三方客户端复用订阅额度的通用做法，**不等于**官方授权：
+
+- 账号可能因此被 OpenAI 的风控标记、限制甚至封禁，风险由使用者自行承担；
+- 插件作者不对此提供任何担保，也不建议在重要账号上使用；
+- 如果你不能接受这个风险，请改用官方 API Key 模式（`prefer_api_key` / 直接配 OpenAI 兼容 provider）。
+

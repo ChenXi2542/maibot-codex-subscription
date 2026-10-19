@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 0.3.7
+
+第七轮审核的三条收尾建议：
+
+- 删除实例方法 `get_webui_config_schema` 的覆盖，只保留 SDK 文档里的类方法
+  `build_config_schema` 注入目录选项（基类实例方法会转发到类方法），不再依赖未文档化的入口。
+- `sync_model_config` 写 `model_config.toml` 的临时文件加 `try/finally` 清理，失败不留 `.tmp-*`。
+- README「合规与安全」补充说明：插件复用 Codex CLI 的 OAuth client id，并以
+  `originator: codex_cli_rs` 自报为官方客户端，账号存在被风控标记的风险，需自行判断。
+
 ## 0.3.6
 
 第五轮审核：

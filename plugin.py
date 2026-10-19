@@ -41,7 +41,7 @@ from maibot_sdk import (
     PluginConfigBase,
 )
 
-__version__ = "0.3.6"
+__version__ = "0.3.7"
 
 # --------------------------------------------------------------------------------------
 # 常量
@@ -1355,8 +1355,16 @@ def sync_model_config(
         logger.warning("备份 model_config.toml 失败", exc_info=True)
 
     tmp = path.with_name(f"{path.name}.tmp-{os.getpid()}-{int(time.time() * 1000)}")
-    tmp.write_text(rendered, encoding="utf-8")
-    os.replace(tmp, path)
+    try:
+        tmp.write_text(rendered, encoding="utf-8")
+        os.replace(tmp, path)
+    finally:
+        # 中途失败不要留下 .tmp-* 垃圾文件
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
     result["changed"] = True
     return result
 
@@ -1616,20 +1624,13 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
         logger.info("模型配置同步：%s", stats)
         return stats
 
-    def get_webui_config_schema(self, **kwargs: Any) -> dict[str, Any]:
-        """把模型目录注入配置页：默认模型是下拉框，可选模型是多选。"""
-        schema = super().get_webui_config_schema(**kwargs)
-        slugs = [item["slug"] for item in self._catalog_snapshot]
-        if not slugs:
-            configured = list(self.cfg.model.enabled_models)
-            if self.cfg.model.default_model:
-                configured.append(self.cfg.model.default_model)
-            slugs = list(dict.fromkeys(item for item in configured if item))
-        return inject_catalog_choices(schema, slugs)
-
     @classmethod
     def build_config_schema(cls, **kwargs: Any) -> dict[str, Any]:
-        """Host 也可能直接走类方法生成 Schema，这里同样注入目录选项。"""
+        """注入模型目录：默认模型是下拉框，可选模型是多选。
+
+        只覆盖 SDK 文档承诺的类方法；实例侧的 ``get_webui_config_schema`` 由基类
+        转发到这里，不再单独覆盖。
+        """
         schema = super().build_config_schema(**kwargs)
         return inject_catalog_choices(schema, [item["slug"] for item in _LAST_CATALOG])
 
