@@ -551,17 +551,20 @@ def test_commands_helpers(tmp: Path) -> None:
 
     class FakeMatch:
         def groups(self):
-            return ("use", "1")
+            return ("use",)
 
-    assert p._parse_command({"match": FakeMatch()}) == ("use", "1")
+    assert p._parse_command({"match": FakeMatch(), "plain_text": "/codex use 1"}) == ("use", "1")
 
     text = p._accounts_text()
-    assert "a@x.com" in text and "b@x.com" in text
+    assert "a***@x.com" in text and "b***@x.com" in text
+    assert "a@x.com" not in text
     assert "已切换到" in p._use_account("1")
     assert p._vault.active_id() == "acct_a"
     assert "已移除" in p._logout("1")
     assert p._vault.active_id() == "acct_b"
-    print("ok  命令解析与账号操作")
+    assert plugin.mask_email("someone@example.com") == "s***@example.com"
+    assert plugin.mask_id("1234567890abcdef") == "12345678…"
+    print("ok  命令解析、脱敏与账号操作")
 
 
 def main() -> int:

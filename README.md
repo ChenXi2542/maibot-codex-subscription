@@ -61,15 +61,21 @@
 
 ## 命令
 
-| 命令 | 作用 |
-| --- | --- |
-| `/codex login` | 设备码登录，添加账号 |
-| `/codex accounts` | 列出账号库（`*` 为当前账号） |
-| `/codex use <序号\|邮箱>` | 切换当前账号 |
-| `/codex status` | 当前账号、订阅类型、令牌有效期、账号库路径 |
-| `/codex models` | 拉取账号可用模型 |
-| `/codex test` | 用 `default_model` 跑一句话验证链路 |
-| `/codex logout <序号>` | 从账号库移除账号（文件里的令牌一并删除） |
+`models` / `test` 对所有人开放；其余命令标了 `permission="operator"`，由 MaiBot 统一鉴权，
+需要在主程序里把自己的账号设为操作员才能用。
+
+| 命令 | 权限 | 作用 |
+| --- | --- | --- |
+| `/codex models` | public | 拉取账号可用模型，并同步到模型配置 |
+| `/codex test` | public | 用 `default_model` 跑一句话验证链路 |
+| `/codex login` | operator | 设备码登录，添加账号 |
+| `/codex accounts` | operator | 列出账号库（邮箱 `a***@domain`、ID 只显示前 8 位） |
+| `/codex use <序号\|邮箱>` | operator | 切换当前账号 |
+| `/codex status` | operator | 当前账号、订阅类型、令牌有效期（已脱敏，不输出路径） |
+| `/codex import` | operator | 从服务器上的 `~/.codex/auth.json` 手动导入一次 |
+| `/codex sync` | operator | 只做一次模型配置同步 |
+| `/codex logout <序号>` | operator | 从账号库移除账号（令牌一并删除） |
+
 
 ---
 
@@ -131,7 +137,7 @@ temperature = 1.0
 | 插件 | `enabled` | `true` | 总开关 |
 | 账号 | `accounts_file` | 空 | 账号库路径；空 = 插件数据目录 |
 | 账号 | `active_account` | 空 | 指定账号（id 或邮箱）；空 = 自动选第一个 |
-| 账号 | `import_codex_auth` | `true` | 账号库为空时导入一次 Codex 登录 |
+| 账号 | `import_codex_auth` | `false` | 账号库为空时自动导入 Codex 登录；建议保持关闭，用 `/codex import` 手动导入 |
 | 账号 | `auto_refresh` | `true` | 自动刷新过期令牌 |
 | 账号 | `prefer_api_key` | `false` | 有 API Key 时优先走按量计费 |
 | 网络 | `proxy` | 空 | 例如 `http://127.0.0.1:7890`；空则读 `HTTPS_PROXY` |

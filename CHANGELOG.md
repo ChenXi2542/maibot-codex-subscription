@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 0.3.2
+
+按插件中心审核意见收紧权限与信息暴露：
+
+- `/codex` 拆成两个组件：只读的 `models` / `test` 保持 `public`；
+  `login` / `accounts` / `use` / `status` / `sync` / `import` / `logout` 标 `permission="operator"`，
+  由主程序统一鉴权，群里普通成员不能再切号、删号或拿走一次性设备码。
+- `/codex accounts`、`/codex status` 与登录/切换/移除的回复全部脱敏：邮箱变 `a***@domain`，
+  账号 ID 只保留前 8 位，不再输出账号库绝对路径。
+- `import_codex_auth` 默认值改为 `false`；新增 `/codex import` 手动导入 `~/.codex/auth.json`。
+- `model_config.toml` 的定位增加校验：同目录必须存在 `bot_config.toml`，否则不再自动改写。
+
 ## 0.3.1
 
 - 插件 ID 定为 `chenxi2542.maibot-codex-subscription`；首次加载会自动从旧 ID 的数据目录

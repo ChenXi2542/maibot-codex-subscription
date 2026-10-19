@@ -41,7 +41,7 @@ from maibot_sdk import (
     PluginConfigBase,
 )
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 
 # --------------------------------------------------------------------------------------
 # 常量
@@ -114,9 +114,9 @@ class AccountConfig(PluginConfigBase):
         json_schema_extra={"label": "当前账号"},
     )
     import_codex_auth: bool = Field(
-        default=True,
-        description="账号库为空时，尝试从 CODEX_HOME/auth.json 或 ~/.codex/auth.json 导入一次",
-        json_schema_extra={"label": "导入 Codex 登录"},
+        default=False,
+        description="账号库为空时自动从 CODEX_HOME/auth.json 导入一次；建议保持关闭，需要时用 /codex import 手动导入",
+        json_schema_extra={"label": "启动时自动导入 Codex 登录"},
     )
     auto_refresh: bool = Field(
         default=True,
@@ -270,6 +270,21 @@ def account_identity(access_token: str, fallback: str = "") -> tuple[str, str, s
     if not account_id:
         account_id = fallback or hashlib.sha256(str(access_token).encode()).hexdigest()[:16]
     return account_id, email, plan, expires_at
+
+
+def mask_email(value: str) -> str:
+    """邮箱脱敏：a***@domain，避免在群聊里直接暴露账号。"""
+    email = str(value or "").strip()
+    if not email or "@" not in email:
+        return email or "(未知)"
+    name, _, domain = email.partition("@")
+    return f"{name[:1]}***@{domain}"
+
+
+def mask_id(value: str) -> str:
+    """账号 ID 只保留前 8 位，避免把完整标识递出去。"""
+    text = str(value or "")
+    return f"{text[:8]}…" if len(text) > 8 else text
 
 
 @dataclass(slots=True)
@@ -1516,12 +1531,19 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
         return self._vault
 
     def _model_config_path(self) -> Path | None:
-        """由插件数据目录反推实例根目录下的 config/model_config.toml。"""
+        """由插件数据目录反推实例根目录下的 config/model_config.toml。
+
+        只有同目录下同时存在 bot_config.toml 才认为是 MaiBot 实例的 config 目录，
+        避免 data_dir 被自定义后误改到别处的同名文件。
+        """
         try:
             data_dir = Path(self.ctx.paths.data_dir)
         except Exception:
             return None
-        candidate = data_dir.parents[2] / "config" / "model_config.toml"
+        config_dir = data_dir.parents[2] / "config"
+        if not (config_dir / "bot_config.toml").is_file():
+            return None
+        candidate = config_dir / "model_config.toml"
         return candidate if candidate.is_file() else None
 
     # -- 模型目录与同步 ------------------------------------------------------
@@ -1712,10 +1734,25 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
 
     @Command(
         "codex",
-        description="ChatGPT 订阅：login / accounts / use / status / models / test / logout",
-        pattern=r"^/codex(?:\s+(\S+))?(?:\s+(.+))?$",
+        description="ChatGPT 订阅只读命令：models / test / 帮助",
+        pattern=r"^/codex(?:\s+(models|test))?\s*$",
+        permission="public",
     )
     async def handle_codex(self, **kwargs: Any) -> tuple[bool, str, int]:
+        sub, _arg = self._parse_command(kwargs)
+        if sub == "models":
+            return await self._cmd_models()
+        if sub == "test":
+            return await self._cmd_test()
+        return True, self._help_text(), 2
+
+    @Command(
+        "codex_admin",
+        description="ChatGPT 订阅管理：login / accounts / use / status / sync / import / logout（仅管理员）",
+        pattern=r"^/codex\s+(login|auth|accounts|list|use|status|info|sync|apply|import|logout|remove)\b.*$",
+        permission="operator",
+    )
+    async def handle_codex_admin(self, **kwargs: Any) -> tuple[bool, str, int]:
         stream_id = str(kwargs.get("stream_id") or "")
         sub, arg = self._parse_command(kwargs)
 
@@ -1727,18 +1764,20 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
             return True, self._use_account(arg), 2
         if sub in ("status", "info"):
             return True, self._status_text(), 2
-        if sub == "models":
-            return await self._cmd_models()
         if sub in ("sync", "apply"):
             return await self._cmd_sync()
-        if sub == "test":
-            return await self._cmd_test()
+        if sub == "import":
+            return await self._cmd_import()
         if sub in ("logout", "remove"):
             return True, self._logout(arg), 2
         return True, self._help_text(), 2
 
     @staticmethod
     def _parse_command(kwargs: dict[str, Any]) -> tuple[str, str]:
+        text = str(kwargs.get("plain_text") or kwargs.get("text") or "").strip()
+        parts = text.split(maxsplit=2)
+        arg_from_text = parts[2].strip() if len(parts) > 2 else ""
+
         match = kwargs.get("match")
         if match is not None and hasattr(match, "groups"):
             try:
@@ -1746,21 +1785,24 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
             except (IndexError, AttributeError):
                 groups = ()
             if groups:
-                return str(groups[0] or "").strip().lower(), str(groups[1] or "").strip()
-        text = str(kwargs.get("plain_text") or kwargs.get("text") or "").strip()
-        parts = text.split(maxsplit=2)
-        return (parts[1].lower() if len(parts) > 1 else ""), (parts[2] if len(parts) > 2 else "")
+                verb = str(groups[0] or "").strip().lower()
+                if verb:
+                    return verb, arg_from_text
+        return (parts[1].lower() if len(parts) > 1 else ""), arg_from_text
 
     def _help_text(self) -> str:
         return (
             "ChatGPT 订阅（Codex）插件\n"
-            "/codex login          — 设备码登录，添加一个 ChatGPT 账号\n"
-            "/codex accounts       — 列出账号库\n"
-            "/codex use <序号|邮箱> — 切换当前账号\n"
-            "/codex status         — 当前账号与令牌状态\n"
+            "只读（所有人）：\n"
             "/codex models         — 拉取可用模型，并同步到麦麦的模型选择\n"
-            "/codex sync           — 只做一次模型配置同步（不打印列表）\n"
             "/codex test           — 用默认模型跑一次\n"
+            "管理（需要操作员权限）：\n"
+            "/codex login          — 设备码登录，添加一个 ChatGPT 账号\n"
+            "/codex accounts       — 列出账号库（邮箱/ID 已脱敏）\n"
+            "/codex use <序号|邮箱> — 切换当前账号\n"
+            "/codex status         — 当前账号与令牌状态（已脱敏）\n"
+            "/codex import         — 从服务器上的 ~/.codex/auth.json 导入一次\n"
+            "/codex sync           — 只做一次模型配置同步\n"
             "/codex logout <序号>  — 从账号库移除账号"
         )
 
@@ -1773,14 +1815,14 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
         if not accounts:
             return "账号库为空。发送 `/codex login` 添加账号。"
 
-        lines = [f"账号库：{self._vault.path}", ""]
+        lines = ["账号库（已脱敏）", ""]
         for index, account in enumerate(accounts, start=1):
             mark = "*" if account.account_id == active else " "
             state = "已过期" if account.expired else "有效"
             lines.append(
-                f"{mark} {index}. {account.label}"
+                f"{mark} {index}. {mask_email(account.email) or mask_id(account.account_id)}"
                 f"{f'（{account.plan}）' if account.plan else ''} [{state}]"
-                f"  {account.account_id[:8]}…"
+                f"  {mask_id(account.account_id)}"
             )
         return "\n".join(lines)
 
@@ -1803,7 +1845,9 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
         if chosen is None:
             return f"没找到账号：{target}"
         self._vault.save(accounts, chosen.account_id)
-        return f"已切换到 {chosen.label}" + (f"（{chosen.plan}）" if chosen.plan else "")
+        return f"已切换到 {mask_email(chosen.email) or mask_id(chosen.account_id)}" + (
+            f"（{chosen.plan}）" if chosen.plan else ""
+        )
 
     def _logout(self, arg: str) -> str:
         try:
@@ -1824,7 +1868,7 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
         if account is None:
             return f"没找到账号：{target}"
         self._vault.remove(account.account_id)
-        return f"已移除 {account.label}"
+        return f"已移除 {mask_email(account.email) or mask_id(account.account_id)}"
 
     def _status_text(self) -> str:
         try:
@@ -1833,8 +1877,8 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
             return str(exc)
 
         lines = [
-            f"账号：{account.label}",
-            f"账号 ID：{account.account_id}",
+            f"账号：{mask_email(account.email) or mask_id(account.account_id)}",
+            f"账号 ID：{mask_id(account.account_id)}",
         ]
         if account.plan:
             lines.append(f"订阅：{account.plan}")
@@ -1845,7 +1889,6 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
             lines.append(f"access_token：{when}（{state}）")
         lines.append(f"refresh_token：{'有' if account.refresh_token else '无'}")
         lines.append(f"来源：{account.source}")
-        lines.append(f"账号库：{self._vault.path}")
         return "\n".join(lines)
 
     async def _cmd_login(self, stream_id: str) -> tuple[bool, str, int]:
@@ -1882,7 +1925,7 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
                 self.sync_models()
             except Exception:
                 logger.warning("登录后同步模型目录失败", exc_info=True)
-            message = f"登录成功：{account.label}"
+            message = f"登录成功：{mask_email(account.email) or mask_id(account.account_id)}"
             if account.plan:
                 message += f"（{account.plan}）"
             message += f"\n账号库：{self._vault.path}"
@@ -1969,6 +2012,16 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
             return True, str(exc), 2
         stats = self.sync_models(catalog=catalog)
         return True, self._describe_sync(stats), 2
+
+    async def _cmd_import(self) -> tuple[bool, str, int]:
+        codex_home = os.environ.get("CODEX_HOME", "").strip()
+        base = Path(os.path.expandvars(codex_home)).expanduser() if codex_home else Path.home() / ".codex"
+        source = base / "auth.json"
+        account = import_codex_auth(source)
+        if account is None:
+            return True, f"没有从 {source} 读到可用的 ChatGPT 令牌（文件不存在或格式不对）。", 2
+        self._vault.upsert(account)
+        return True, f"已导入账号 {mask_email(account.email) or mask_id(account.account_id)}", 2
 
     def _describe_sync(self, stats: dict[str, Any]) -> str:
         if not stats.get("changed") and stats.get("reason"):
