@@ -5,12 +5,12 @@
   "name": "ChatGPT 订阅 (Codex)",
   "description": "插件内置 ChatGPT 账号登录与账号库，用 Plus/Pro（Codex）订阅额度作为 MaiBot 的 LLM Provider，无需 OpenAI API Key。",
   "author": {
-    "name": "XLCX0429",
-    "url": "https://github.com/XLCX0429"
+    "name": "ChenXi2542",
+    "url": "https://github.com/ChenXi2542"
   },
   "license": "MIT",
   "urls": {
-    "repository": "https://github.com/XLCX0429/maibot-codex-subscription",
+    "repository": "https://github.com/ChenXi2542/maibot-codex-subscription",
     "documentation": "https://docs.mai-mai.org/plugin/llmprovider"
   },
   "host_application": {
