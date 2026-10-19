@@ -1240,11 +1240,13 @@ def sync_model_config(
 
     foreign_names = {str(item.get("name") or "") for item in models if str(item.get("api_provider") or "") != provider_name}
     kept: list[Any] = []
+    kept_managed_names: set[str] = set()
     for item in list(models):
         if str(item.get("api_provider") or "") == provider_name:
             name = str(item.get("name") or "")
             if name in referenced:
                 kept.append(item)
+                kept_managed_names.add(name)
                 result["kept"] += 1
             else:
                 result["removed"] += 1
@@ -1254,7 +1256,8 @@ def sync_model_config(
     managed: list[Any] = []
     for slug in slugs:
         name = f"{prefix}{slug}"
-        if name in foreign_names:
+        if name in foreign_names or name in kept_managed_names:
+            # 已被任务配置引用而保留的同名条目不再重复添加，否则模型名重复会导致麦麦启动失败
             result.setdefault("skipped", []).append(name)
             continue
         table = tomlkit.table()
@@ -1272,10 +1275,18 @@ def sync_model_config(
         result["added"] += 1
 
     new_models = tomlkit.aot()
-    for item in kept:
+    used_names: set[str] = set()
+    dropped = 0
+    for item in list(kept) + list(managed):
+        name = str(item.get("name") or "")
+        if name and name in used_names:
+            dropped += 1
+            continue
+        if name:
+            used_names.add(name)
         new_models.append(item)
-    for item in managed:
-        new_models.append(item)
+    if dropped:
+        result["dropped_duplicates"] = dropped
     doc["models"] = new_models
 
     rendered = tomlkit.dumps(doc)
@@ -1283,11 +1294,15 @@ def sync_model_config(
         result["reason"] = "无变化"
         return result
 
-    # 写回前先自校验：能被重新解析、且模型数量对得上，才落盘。
+    # 写回前先自校验：能被重新解析、条目数一致、且没有重名，才落盘。
     try:
         check = tomlkit.parse(rendered)
-        if not isinstance(check.get("models"), list) or len(check.get("models")) != len(kept) + len(managed):
+        check_models = check.get("models")
+        if not isinstance(check_models, list) or len(check_models) != len(used_names):
             raise ValueError("模型条目数量不一致")
+        check_names = [str(item.get("name") or "") for item in check_models]
+        if len(check_names) != len(set(check_names)):
+            raise ValueError("模型名称存在重复")
     except Exception as exc:
         result["reason"] = f"生成的 TOML 校验失败，已放弃写入：{exc}"
         logger.error("模型配置同步被中止：%s", exc)
