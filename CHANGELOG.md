@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 0.3.5
+
+第四轮审核的三条非阻断建议：
+
+- 迁移旧 ID 账号库后补 `os.chmod(target, 0o600)`，`copy2` 不会再继承 0644 之类的源权限。
+- `/codex models`（public）只读内存快照：不联网、不刷新令牌、不写盘；目录为空时提示由管理员
+  `/codex sync` 拉取。
+- `issuer` / `base_url` / `api_base_url` 的字段说明和 README 增加警告：这些地址会收到
+  `Bearer` 令牌，不要指向不可信地址。
+
 ## 0.3.4
 
 第三轮审核的三条非阻断建议：

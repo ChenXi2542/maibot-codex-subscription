@@ -139,6 +139,10 @@ temperature = 1.0
 
 ## 插件配置
 
+> ⚠️ `network.base_url` / `network.api_base_url` / `account.issuer` 决定令牌发往哪里。
+> 插件会把账号的 access_token（或 API Key）作为 `Bearer` 发到这些地址，**不要指向 localhost、内网
+> 或任何不可信地址**，除非你完全清楚自己在做什么。
+
 | 分组 | 字段 | 默认 | 说明 |
 | --- | --- | --- | --- |
 | 插件 | `enabled` | `true` | 总开关 |

@@ -41,7 +41,7 @@ from maibot_sdk import (
     PluginConfigBase,
 )
 
-__version__ = "0.3.4"
+__version__ = "0.3.5"
 
 # --------------------------------------------------------------------------------------
 # 常量
@@ -130,8 +130,8 @@ class AccountConfig(PluginConfigBase):
     )
     issuer: str = Field(
         default=DEFAULT_ISSUER,
-        description="OAuth 签发地址",
-        json_schema_extra={"label": "OAuth 签发地址"},
+        description="OAuth 签发地址。请勿指向不可信地址：账号令牌会被发往该地址换取/刷新凭证",
+        json_schema_extra={"label": "OAuth 签发地址", "hint": "保持默认 auth.openai.com；改成其它地址等于把令牌交给它"},
     )
 
 
@@ -149,13 +149,13 @@ class NetworkConfig(PluginConfigBase):
     )
     base_url: str = Field(
         default=DEFAULT_CHATGPT_BASE_URL,
-        description="订阅后端根地址",
-        json_schema_extra={"label": "订阅后端地址"},
+        description="订阅后端根地址。请勿指向不可信地址：访问令牌会作为 Bearer 发往该地址",
+        json_schema_extra={"label": "订阅后端地址", "hint": "默认 chatgpt.com；改成内网/不明地址会泄露访问令牌"},
     )
     api_base_url: str = Field(
         default=DEFAULT_OPENAI_BASE_URL,
-        description="API Key 模式后端根地址",
-        json_schema_extra={"label": "API Key 后端地址"},
+        description="API Key 模式后端根地址。请勿指向不可信地址：API Key 会作为 Bearer 发往该地址",
+        json_schema_extra={"label": "API Key 后端地址", "hint": "默认 api.openai.com；改成内网/不明地址会泄露 API Key"},
     )
     timeout: float = Field(default=300.0, description="请求总超时（秒）", json_schema_extra={"label": "请求超时"})
     connect_timeout: float = Field(default=20.0, description="连接超时（秒）", json_schema_extra={"label": "连接超时"})
@@ -1674,6 +1674,11 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
             try:
                 data_dir.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(legacy, target)
+                # copy2 会继承源文件权限，旧目录可能是 0644，这里强制收回 0600
+                try:
+                    os.chmod(target, 0o600)
+                except OSError:
+                    pass
                 logger.info("已从旧插件 ID 迁移账号库：%s -> %s", legacy, target)
             except OSError:
                 logger.warning("迁移旧账号库失败：%s", legacy, exc_info=True)
@@ -2012,25 +2017,16 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
         return models
 
     async def _cmd_models(self) -> tuple[bool, str, int]:
-        client = await self.http_client()
-        try:
-            account = await self.ensure_account(client)
-            models = await self._catalog(client, account, force=False)
-        except CodexError as exc:
-            return True, str(exc), 2
+        """公开命令：只读内存里的目录快照，不联网、不刷新令牌、不写盘。"""
+        snapshot = list(self._catalog_snapshot)
+        if not snapshot:
+            return (
+                True,
+                "模型目录尚未缓存（插件启动或管理员执行 `/codex sync` 时会拉取）。",
+                2,
+            )
 
-        self._catalog_snapshot = normalize_catalog(models)
-
-        lines = []
-        for entry in models[:40]:
-            identifier = entry.get("slug") or entry.get("id")
-            if not identifier:
-                continue
-            display = entry.get("display_name") or entry.get("name") or identifier
-            lines.append(f"{identifier}  ({display})" if display != identifier else str(identifier))
-
-        if not lines:
-            return True, "后端没有返回可用模型。可设置 client_version（codex --version）后重试。", 2
+        lines = [f"{item['slug']}  ({item['name']})" if item["name"] != item["slug"] else item["slug"] for item in snapshot[:40]]
         return True, "可用模型：\n" + "\n".join(lines), 2
 
     async def _cmd_sync(self) -> tuple[bool, str, int]:
