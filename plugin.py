@@ -41,7 +41,7 @@ from maibot_sdk import (
     PluginConfigBase,
 )
 
-__version__ = "0.3.5"
+__version__ = "0.3.6"
 
 # --------------------------------------------------------------------------------------
 # 常量
@@ -1232,9 +1232,18 @@ def sync_model_config(
 
     provider = None
     for item in providers:
-        if str(item.get("name") or "") == provider_name:
-            provider = item
-            break
+        if str(item.get("name") or "") != provider_name:
+            continue
+        # 同名但类型不是本插件的 provider，说明是别人家的（比如手写的 openai），一律不碰
+        if str(item.get("client_type") or "") != CLIENT_TYPE:
+            result["reason"] = (
+                f"已存在同名 provider「{provider_name}」"
+                f"（client_type={str(item.get('client_type') or '') or '未设置'}），已跳过同步以免误删其模型"
+            )
+            logger.warning("%s", result["reason"])
+            return result
+        provider = item
+        break
     if provider is None:
         provider = tomlkit.table()
         provider["name"] = provider_name

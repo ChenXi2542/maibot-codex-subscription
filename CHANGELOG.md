@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## 0.3.6
+
+第五轮审核：
+
+- `sync_model_config` 匹配 provider 时增加 `client_type` 校验：如果同名 provider 不是
+  `codex_subscription`，直接跳过同步并记日志，不再可能误删别人家 provider 下的模型。
+- README 补充 `provider_name` 不要指向已有 provider 的提醒；把发布用的 `PUBLISH.md` /
+  `publish.ps1` 移出仓库（只保留插件本体、LICENSE、README、CHANGELOG 与测试）。
+
 ## 0.3.5
 
 第四轮审核的三条非阻断建议：

@@ -91,6 +91,8 @@
 - 每个模型生成一条 `[[models]]`，名字默认加 `codex-` 前缀（可配置），避免和已有模型重名；
 - **只重建自己 provider 下的条目**：`model_task_config` 引用中的会保留，其余会被移除——
   包括你手动加到 `Codex订阅` 下面的条目，所以别把自定义模型挂在这个 provider 下；
+- `provider_name`（默认 `Codex订阅`）**不要填成已有 provider 的名字**：如果同名 provider 的
+  `client_type` 不是 `codex_subscription`，同步会直接跳过并记日志，不会删它的模型；
 - 写前备份到 `config/old/model_config_codex_<时间>.toml`，只保留最近 10 份；
 - MaiBot 有文件监听，写完自动热重载，无需重启。
 
