@@ -41,7 +41,7 @@ from maibot_sdk import (
     PluginConfigBase,
 )
 
-__version__ = "0.3.7"
+__version__ = "0.3.8"
 
 # --------------------------------------------------------------------------------------
 # 常量
@@ -1783,10 +1783,11 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
         permission="public",
     )
     async def handle_codex(self, **kwargs: Any) -> tuple[bool, str, int]:
+        stream_id = str(kwargs.get("stream_id") or "")
         sub, _arg = self._parse_command(kwargs)
         if sub == "models":
-            return await self._cmd_models()
-        return True, self._help_text(), 2
+            return await self._reply(stream_id, await self._cmd_models())
+        return await self._reply(stream_id, (True, self._help_text(), 2))
 
     @Command(
         "codex_admin",
@@ -1802,22 +1803,34 @@ class CodexSubscriptionPlugin(MaiBotPlugin):
         sub, arg = self._parse_command(kwargs)
 
         if sub in ("login", "auth"):
-            return await self._cmd_login(stream_id)
-        if sub in ("accounts", "list"):
-            return True, self._accounts_text(), 2
-        if sub == "use":
-            return True, self._use_account(arg), 2
-        if sub in ("status", "info"):
-            return True, self._status_text(), 2
-        if sub in ("sync", "apply"):
-            return await self._cmd_sync()
-        if sub == "import":
-            return await self._cmd_import()
-        if sub == "test":
-            return await self._cmd_test()
-        if sub in ("logout", "remove"):
-            return True, self._logout(arg), 2
-        return True, self._help_text(), 2
+            result = await self._cmd_login(stream_id)
+        elif sub in ("accounts", "list"):
+            result = (True, self._accounts_text(), 2)
+        elif sub == "use":
+            result = (True, self._use_account(arg), 2)
+        elif sub in ("status", "info"):
+            result = (True, self._status_text(), 2)
+        elif sub in ("sync", "apply"):
+            result = await self._cmd_sync()
+        elif sub == "import":
+            result = await self._cmd_import()
+        elif sub == "test":
+            result = await self._cmd_test()
+        elif sub in ("logout", "remove"):
+            result = (True, self._logout(arg), 2)
+        else:
+            result = (True, self._help_text(), 2)
+        return await self._reply(stream_id, result)
+
+    async def _reply(self, stream_id: str, result: tuple[bool, str, int]) -> tuple[bool, str, int]:
+        """命令回复要自己发：Host 只接收返回值，不会替插件发送文本。"""
+        ok, text, weight = result
+        if stream_id and text:
+            try:
+                await self.ctx.send.text(text, stream_id)
+            except Exception:  # pragma: no cover - 发送失败不影响命令结果
+                logger.exception("发送命令回复失败")
+        return ok, text, weight
 
     @staticmethod
     def _parse_command(kwargs: dict[str, Any]) -> tuple[str, str]:

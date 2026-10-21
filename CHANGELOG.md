@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 0.3.8
+
+- 修复：命令回复没有发出去（日志里能看到 `/codex login`，但聊天里没消息）。
+  Host 只接收命令处理函数的返回值，不会替插件发文本；现在所有命令都通过
+  `ctx.send.text` 主动回复，`/codex login` 的一次性代码、`/codex status`、
+  `/codex accounts` 等都能正常出现在聊天里。
+
 ## 0.3.7
 
 第七轮审核的三条收尾建议：

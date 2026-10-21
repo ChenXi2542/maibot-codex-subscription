@@ -33,7 +33,13 @@ def install_sdk_stub() -> None:
 
     class MaiBotPlugin:
         def __init__(self) -> None:
-            pass
+            self._ctx = None
+
+        @property
+        def ctx(self):
+            if self._ctx is None:
+                raise RuntimeError("插件上下文尚未初始化")
+            return self._ctx
 
     def _decorator(*args, **kwargs):
         def wrap(func):
@@ -565,6 +571,26 @@ def test_commands_helpers(tmp: Path) -> None:
     print("ok  命令解析、脱敏与账号操作")
 
 
+def test_command_reply_sends() -> None:
+    p = plugin.create_plugin()
+    sent: list[tuple[str, str]] = []
+
+    class FakeSend:
+        async def text(self, text: str, stream_id: str) -> bool:
+            sent.append((text, stream_id))
+            return True
+
+    p._ctx = types.SimpleNamespace(send=FakeSend())
+    result = asyncio.run(p._reply("stream-1", (True, "hello", 2)))
+    assert result == (True, "hello", 2)
+    assert sent == [("hello", "stream-1")]
+
+    sent.clear()
+    asyncio.run(p._reply("", (True, "x", 2)))
+    assert sent == []
+    print("ok  命令回复通过 ctx.send.text 发出")
+
+
 def main() -> int:
     test_manifest_matches_decorator()
     test_normalize_call_id()
@@ -596,6 +622,7 @@ def main() -> int:
     test_catalog_helpers()
     test_sse_sniffing()
     test_parse_json_fallback()
+    test_command_reply_sends()
     print("\n全部测试通过")
     return 0
 
