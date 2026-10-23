@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## 0.3.9
+
+修复 MaiBot 1.3.14+ 启动失败（issue #1）：
+
+- 生成的 `[[models]]` 条目补上 `model_type = "llm"`。1.3.14 起 `ModelInfo.model_type`
+  是必填字段，缺了会导致主程序无法加载/刷新 `model_config.toml`。
+- 同步时保留已有条目里模板未覆盖的字段（宿主新增字段、用户手调的 `temperature` 等），
+  避免以后每加一个字段就被抹掉。
+- 被任务引用而保留的旧条目也会补 `model_type`。
+
 ## 0.3.8
 
 - 修复：命令回复没有发出去（日志里能看到 `/codex login`，但聊天里没消息）。

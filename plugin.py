@@ -41,7 +41,7 @@ from maibot_sdk import (
     PluginConfigBase,
 )
 
-__version__ = "0.3.8"
+__version__ = "0.3.9"
 
 # --------------------------------------------------------------------------------------
 # 常量
@@ -1270,12 +1270,19 @@ def sync_model_config(
         models = doc["models"]
 
     foreign_names = {str(item.get("name") or "") for item in models if str(item.get("api_provider") or "") != provider_name}
+    existing_managed: dict[str, Any] = {
+        str(item.get("name") or ""): item
+        for item in models
+        if str(item.get("api_provider") or "") == provider_name
+    }
     kept: list[Any] = []
     kept_managed_names: set[str] = set()
     for item in list(models):
         if str(item.get("api_provider") or "") == provider_name:
             name = str(item.get("name") or "")
             if name in referenced:
+                if "model_type" not in item:
+                    item["model_type"] = "llm"
                 kept.append(item)
                 kept_managed_names.add(name)
                 result["kept"] += 1
@@ -1295,6 +1302,8 @@ def sync_model_config(
         table["model_identifier"] = slug
         table["name"] = name
         table["api_provider"] = provider_name
+        # MaiBot 1.3.14+ 的 ModelInfo 把 model_type 变成必填字段，缺了会导致启动/刷新失败
+        table["model_type"] = "llm"
         table["price_in"] = 0.0
         table["price_out"] = 0.0
         table["cache_price_in"] = 0.0
@@ -1302,6 +1311,17 @@ def sync_model_config(
         table["visual"] = False
         table["force_stream_mode"] = False
         table["extra_params"] = tomlkit.inline_table()
+
+        # 保留旧条目里我们模板没覆盖的字段（例如宿主新加的 model_type、用户手调的 temperature 等）
+        previous = existing_managed.get(name)
+        if previous is not None:
+            for key, value in previous.items():
+                if key in table:
+                    continue
+                try:
+                    table[key] = value.unwrap() if hasattr(value, "unwrap") else value
+                except Exception:  # pragma: no cover - 单个字段复制失败不影响整体
+                    continue
         managed.append(table)
         result["added"] += 1
 
